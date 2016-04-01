@@ -70,7 +70,7 @@ class Repacker(object):
 
     repack_command = ("wgrib2 {input_file} -set_grib_type {packing_type} "
                       "-grib_out {output_file}")
-    target_packing_type = "grid_ccsds"
+    target_packing_type = "aec"
     round_trip_packing_type = "simple"
 
     def __init__(self, repack_command=None, target_packing_type=None,
@@ -216,3 +216,21 @@ if __name__ == "__main__":
         grib_api_matches = np.array(gribs_match(gribfile, ccsds.name))
         extract_gribs(gribfile, ~grib_api_matches, args.grib_api_errors)
 
+        # Repeat with external command
+        external = args.external_software
+        subprocess.check_call(external.repack_command.format(
+            input_file=gribfile,
+            packing_type=external.target_packing_type,
+            output_file=external_ccsds.name).split(" ")
+        )
+        if not all(gribs_match(gribfile, external_ccsds.name)):
+            raise EncodingError("{}: Encoded different data.".format(
+                external.repack_command))
+        subprocess.check_call(external.repack_command.format(
+            input_file=external_ccsds.name,
+            packing_type=external.round_trip_packing_type,
+            output_file=round_trip.name).split(" ")
+        )
+        if not all(gribs_match(gribfile, round_trip.name)):
+            raise EncodingError("{}: Decoded different data.".format(
+                external.repack_command))
