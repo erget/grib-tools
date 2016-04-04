@@ -66,7 +66,11 @@ from logging import info
 from tempfile import NamedTemporaryFile
 
 import numpy as np
-from eccodes import codes_grib_new_from_file, codes_write
+try:
+    from eccodes import codes_grib_new_from_file, codes_write
+except ImportError:
+    from gribapi import (grib_new_from_file as codes_grib_new_from_file,
+                         grib_write as codes_write)
 
 from utils import repack, gribs_match, EncodingError
 

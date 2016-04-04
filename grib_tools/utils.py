@@ -15,15 +15,26 @@
 """Utilities for repacking GRIBs and testing for identical contents."""
 
 import numpy as np
-from eccodes import (codes_grib_new_from_file,
-                     codes_get_values,
-                     codes_clone,
-                     codes_set_values,
-                     codes_set,
-                     codes_write,
-                     codes_release,
-                     codes_get,
-                     CodesInternalError)
+try:
+    from eccodes import (codes_grib_new_from_file,
+                         codes_get_values,
+                         codes_clone,
+                         codes_set_values,
+                         codes_set,
+                         codes_write,
+                         codes_release,
+                         codes_get,
+                         CodesInternalError)
+except ImportError:
+    from gribapi import (grib_new_from_file as codes_grib_new_from_file,
+                         grib_get_values as codes_get_values,
+                         grib_clone as codes_clone,
+                         grib_set_values as codes_set_values,
+                         grib_set as codes_set,
+                         grib_write as codes_write,
+                         grib_release as codes_release,
+                         grib_get as codes_get,
+                         GribInternalError as CodesInternalError)
 
 
 class EncodingError(Exception):
