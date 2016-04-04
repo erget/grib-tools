@@ -1,7 +1,21 @@
+# Copyright 2016 Deutscher Wetterdienst
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
 Test encoding/decoding CCSDS.
 
-This uses a version of ecCodes modified with the following patch::
+This uses a version of ecCodes modified with the following patch:
 
     From 3825f6c3e9278914a2e74d7d1a6015be457be0d4 Mon Sep 17 00:00:00 2001
     From: Mathis Rosenhauer <rosenhauer@dkrz.de>
@@ -42,29 +56,22 @@ This uses a version of ecCodes modified with the following patch::
     --
     1.9.1
 """
-
 from __future__ import print_function
 
 import logging
 import os
 import subprocess
-from tempfile import NamedTemporaryFile
 from argparse import ArgumentParser, RawTextHelpFormatter
 from logging import info
+from tempfile import NamedTemporaryFile
 
 import numpy as np
-from eccodes import (codes_clone,
-                     codes_get,
-                     codes_get_values,
-                     codes_grib_new_from_file,
-                     codes_release,
-                     codes_set,
-                     codes_set_values,
-                     codes_write,
-                     CodesInternalError)
+from eccodes import codes_grib_new_from_file, codes_write
+
+from utils import repack, gribs_match, EncodingError
 
 
-class Repacker(object):
+class ExternalRepacker(object):
 
     """Repacks GRIBs using an external process."""
 
@@ -81,100 +88,6 @@ class Repacker(object):
             self.target_packing_type = target_packing_type
         if round_trip_packing_type is not None:
             self.round_trip_packing_type = round_trip_packing_type
-
-
-class EncodingError(Exception):
-    """An error occurred during encoding or decoding."""
-
-
-def confirm_packing_type(gribfile, packing_type):
-    """Confirm that gribfile contains only GRIBs with specified packingType."""
-    comparisons = []
-    with open(gribfile) as infile:
-        while True:
-            gid = codes_grib_new_from_file(infile)
-            if gid is None:
-                break
-            encoded_type = codes_get(gid, "packingType")
-            codes_release(gid)
-            comparisons.append(encoded_type == packing_type)
-    return comparisons
-
-
-def repack(input_file, outfile, packing_type):
-    """Repack infile with packing_type, write result to outfile."""
-    with open(input_file) as infile:
-        while True:
-            in_gid = codes_grib_new_from_file(infile)
-            if in_gid is None:
-                break
-            payload = codes_get_values(in_gid)
-            clone_id = codes_clone(in_gid)
-            codes_set(clone_id, "packingType", packing_type)
-            codes_set_values(clone_id, payload)
-            with open(outfile, "a") as output:
-                codes_write(clone_id, output)
-            codes_release(clone_id)
-            codes_release(in_gid)
-    if not confirm_packing_type(outfile, packing_type):
-        raise EncodingError("CCSDS encoding silently failed.")
-
-
-def gribs_match(left, right):
-    """Check if GRIBs in both input files store the same data."""
-    comparisons = []
-    with open(left) as a, open(right) as b:
-        while True:
-            a_gid = codes_grib_new_from_file(a)
-            if a_gid is None:
-                break
-            b_gid = codes_grib_new_from_file(b)
-            packing_errors = [0]
-            try:
-                packing_errors.append(codes_get(a_gid, "packingError"))
-                packing_errors.append(codes_get(b_gid, "packingError"))
-            except CodesInternalError:
-                pass
-            tolerance = max(packing_errors)
-            a_values = codes_get_values(a_gid)
-            b_values = codes_get_values(b_gid)
-            comparisons.append(np.allclose(a_values, b_values, atol=tolerance))
-    return comparisons
-
-
-def get_args():
-    """Parse arguments from command line."""
-    parser = ArgumentParser(description=__doc__[1:-1],
-                            formatter_class=RawTextHelpFormatter)
-    parser.add_argument("-v", action="store_true", help="Verbose output")
-    parser.add_argument("--external_repack_command",
-                        help="External command to repack GRIBs. This should \n"
-                             "be a quoted string with the arguments \n"
-                             "'input_file', 'packing_type' and 'output_file' \n"
-                             "in curly braces. Default:\n" +
-                             Repacker.repack_command,
-                        default=None)
-    parser.add_argument("--target_packing_type",
-                        help="Target packing type to check. Default:\n" +
-                             Repacker.target_packing_type,
-                        default=None)
-    parser.add_argument("--round_trip_packing_type",
-                        help="Packing type to check decoding of target "
-                             "packing type. Default:\n" +
-                             Repacker.round_trip_packing_type,
-                        default=None)
-    parser.add_argument("--grib_api_errors",
-                        help="File to write GRIBs to which don't match when\n"
-                             "reencoded with GRIB API.")
-    parser.add_argument("--external_errors",
-                        help="File to write GRIBs to which don't match when\n"
-                             "reencoded with external command.")
-    parser.add_argument("grib", nargs="+", help="GRIB file to process")
-    args = parser.parse_args()
-    args.external_software = Repacker(args.external_repack_command,
-                                      args.target_packing_type,
-                                      args.round_trip_packing_type)
-    return args
 
 
 def extract_gribs(input_file, extract_list, output_file):
@@ -199,7 +112,43 @@ def extract_gribs(input_file, extract_list, output_file):
             i += 1
 
 
-if __name__ == "__main__":
+def get_args():
+    """Parse arguments from command line."""
+    parser = ArgumentParser(description=__doc__[1:-1],
+                            formatter_class=RawTextHelpFormatter)
+    parser.add_argument("-v", action="store_true", help="Verbose output")
+    parser.add_argument("--external_repack_command",
+                        help="External command to repack GRIBs. This should\n"
+                             "be a quoted string with the arguments \n"
+                             "'input_file', 'packing_type' and 'output_file'\n"
+                             "in curly braces. Default:\n" +
+                             ExternalRepacker.repack_command,
+                        default=None)
+    parser.add_argument("--target_packing_type",
+                        help="Target packing type to check. Default:\n" +
+                             ExternalRepacker.target_packing_type,
+                        default=None)
+    parser.add_argument("--round_trip_packing_type",
+                        help="Packing type to check that the target packing "
+                             "type is\n"
+                             "decoded properly. Default:\n" +
+                             ExternalRepacker.round_trip_packing_type,
+                        default=None)
+    parser.add_argument("--grib_api_errors",
+                        help="File to write GRIBs to which don't match when\n"
+                             "reencoded with GRIB API.")
+    parser.add_argument("--external_errors",
+                        help="File to write GRIBs to which don't match when\n"
+                             "reencoded with external command.")
+    parser.add_argument("grib", nargs="+", help="GRIB file to process")
+    args = parser.parse_args()
+    args.external_software = ExternalRepacker(args.external_repack_command,
+                                              args.target_packing_type,
+                                              args.round_trip_packing_type)
+    return args
+
+
+def main():
     args = get_args()
     if args.v:
         logging.basicConfig(format="%(levelname)s: %(message)s",
@@ -234,3 +183,6 @@ if __name__ == "__main__":
         if not all(gribs_match(gribfile, round_trip.name)):
             raise EncodingError("{}: Decoded different data.".format(
                 external.repack_command))
+
+if __name__ == '__main__':
+    main()
