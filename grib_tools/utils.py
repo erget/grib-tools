@@ -71,7 +71,7 @@ def repack(input_file, outfile, packing_type):
             codes_release(clone_id)
             codes_release(in_gid)
     if not confirm_packing_type(outfile, packing_type):
-        raise EncodingError("CCSDS encoding silently failed.")
+        raise EncodingError("Reencoding silently failed.")
 
 
 def gribs_match(left, right):
@@ -83,6 +83,8 @@ def gribs_match(left, right):
             if a_gid is None:
                 break
             b_gid = codes_grib_new_from_file(b)
+            if b_gid is None:
+                raise RuntimeError("GRIBs contain unequal number of messages.")
             packing_errors = [0]
             try:
                 packing_errors.append(codes_get(a_gid, "packingError"))

@@ -23,5 +23,6 @@ setup(
     entry_points={
         "console_scripts":
         ["validate_encoding = grib_tools.validate_encoding:main"]
-    }
+    },
+    test_suite="grib_tools.tests"
 )
