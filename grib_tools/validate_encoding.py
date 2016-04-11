@@ -61,6 +61,7 @@ from __future__ import print_function
 import logging
 import os
 import subprocess
+import sys
 from argparse import ArgumentParser, RawTextHelpFormatter
 from logging import info
 from tempfile import NamedTemporaryFile
@@ -161,6 +162,7 @@ def main():
     ccsds = NamedTemporaryFile()
     external_ccsds = NamedTemporaryFile()
     round_trip = NamedTemporaryFile()
+
     for gribfile in gribfiles:
         info("Working with GRIBs in {}".format(gribfile))
 
@@ -176,17 +178,15 @@ def main():
             packing_type=external.target_packing_type,
             output_file=external_ccsds.name).split(" ")
         )
-        if not all(gribs_match(gribfile, external_ccsds.name)):
-            raise EncodingError("{}: Encoded different data.".format(
-                external.repack_command))
         subprocess.check_call(external.repack_command.format(
             input_file=external_ccsds.name,
             packing_type=external.round_trip_packing_type,
             output_file=round_trip.name).split(" ")
         )
-        if not all(gribs_match(gribfile, round_trip.name)):
-            raise EncodingError("{}: Decoded different data.".format(
-                external.repack_command))
+        external_matches = np.array(gribs_match(gribfile, round_trip.name))
+        extract_gribs(gribfile, ~external_matches, args.external_errors)
+
+    return any(grib_api_matches + external_matches)
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())
