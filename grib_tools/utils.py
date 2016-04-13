@@ -14,6 +14,9 @@
 
 """Utilities for repacking GRIBs and testing for identical contents."""
 
+
+from logging import info
+
 import numpy as np
 try:
     from eccodes import (codes_grib_new_from_file,
@@ -58,10 +61,12 @@ def confirm_packing_type(gribfile, packing_type):
 def repack(input_file, outfile, packing_type):
     """Repack infile with packing_type, write result to outfile."""
     with open(input_file) as infile:
+        i = 1
         while True:
             in_gid = codes_grib_new_from_file(infile)
             if in_gid is None:
                 break
+            info("Repacking GRIB #{}".format(i))
             payload = codes_get_values(in_gid)
             clone_id = codes_clone(in_gid)
             codes_set(clone_id, "packingType", packing_type)
