@@ -94,7 +94,9 @@ def gribs_match(left, right):
                 break
             b_gid = codes_grib_new_from_file(b)
             if b_gid is None:
-                raise RuntimeError("GRIBs contain unequal number of messages.")
+                comparisons.append(False)
+                info("GRIBs contain unequal number of messages.")
+                continue
             packing_errors = [0]
             try:
                 packing_errors.append(codes_get(a_gid, "packingError"))

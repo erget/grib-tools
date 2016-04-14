@@ -173,12 +173,12 @@ def main():
 
         # Repeat with external command
         external = args.external_software
-        subprocess.check_call(external.repack_command.format(
+        subprocess.call(external.repack_command.format(
             input_file=gribfile,
             packing_type=external.target_packing_type,
             output_file=external_ccsds.name).split(" ")
         )
-        subprocess.check_call(external.repack_command.format(
+        subprocess.call(external.repack_command.format(
             input_file=external_ccsds.name,
             packing_type=external.round_trip_packing_type,
             output_file=round_trip.name).split(" ")

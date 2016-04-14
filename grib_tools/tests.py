@@ -47,8 +47,8 @@ class TestUtils(TestCase):
                                         GRID_SECOND_ORDER_COLLECTION)))
         self.assertEqual([True, True, False, True, False],
                          gribs_match(GRID_SIMPLE_COLLECTION, SHUFFLED_GRIBS))
-        self.assertRaises(RuntimeError, gribs_match, GRID_SIMPLE_COLLECTION,
-                          MIXED_GRIBS)
+        self.assertEqual([True, False, False, False, False],
+                          gribs_match(GRID_SIMPLE_COLLECTION, MIXED_GRIBS))
 
     def test_repack(self):
         """GRIBs are repacked and contain matching data with originals."""
