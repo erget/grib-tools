@@ -186,7 +186,7 @@ def main():
         external_matches = np.array(gribs_match(gribfile, round_trip.name))
         extract_gribs(gribfile, ~external_matches, args.external_errors)
 
-    return not any(grib_api_matches + external_matches)
+    return all(grib_api_matches + external_matches)
 
 if __name__ == '__main__':
     sys.exit(main())

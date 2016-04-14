@@ -71,10 +71,15 @@ def repack(input_file, outfile, packing_type):
             clone_id = codes_clone(in_gid)
             codes_set(clone_id, "packingType", packing_type)
             codes_set_values(clone_id, payload)
-            with open(outfile, "a") as output:
+            if i == 1:
+                mode = "w"
+            else:
+                mode = "a"
+            with open(outfile, mode) as output:
                 codes_write(clone_id, output)
             codes_release(clone_id)
             codes_release(in_gid)
+            i += 1
     if not confirm_packing_type(outfile, packing_type):
         raise EncodingError("Reencoding silently failed.")
 
